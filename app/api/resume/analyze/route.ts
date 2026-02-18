@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { openai } from "@/lib/openai";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdf = require("pdf-parse");
 
+// Force dynamic to prevent static generation attempts
 export const dynamic = 'force-dynamic';
+// Explicitly set runtime to nodejs to avoid edge compatibility issues with pdf-parse
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
     try {
@@ -14,6 +13,12 @@ export async function POST(req: Request) {
         if (!session) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        // Lazy load heavy dependencies to prevent build-time crashes
+        const { prisma } = await import("@/lib/prisma");
+        const OpenAI = (await import("openai")).default;
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const pdf = require("pdf-parse");
 
         const formData = await req.formData();
         const file = formData.get("file") as File;
@@ -33,6 +38,17 @@ export async function POST(req: Request) {
         if (!resumeText) {
             return NextResponse.json({ error: "Could not extract text from PDF" }, { status: 400 });
         }
+
+        // Initialize OpenAI only when needed and safe
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+            console.error("OPENAI_API_KEY is missing");
+            return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+        }
+
+        const openai = new OpenAI({
+            apiKey: apiKey,
+        });
 
         // Analyze with OpenAI
         const prompt = `
@@ -59,19 +75,10 @@ export async function POST(req: Request) {
         const analysisResult = JSON.parse(completion.choices[0].message.content || "{}");
 
         // Save to Database
-        // Note: In a real app, we would upload the file to Supabase Storage here and save the URL.
-        // For this MVP, we are skipping the storage upload in this route and focusing on the analysis.
-        // The frontend can handle the storage upload separately if needed, or we can add it here.
-        // For now, we'll store a placeholder URL or the one sent from frontend if we change the flow.
-
-        // Let's assume the frontend will upload to Supabase and send us the URL, OR we just store the analysis.
-        // The prompt asked for "Supabase Storage (for resume upload)".
-        // Let's create the record.
-
         const resume = await prisma.resume.create({
             data: {
                 userId: session.user.id,
-                fileUrl: "https://example.com/placeholder.pdf", // We'd update this if we had the storage logic
+                fileUrl: "https://example.com/placeholder.pdf", // Placeholder for now
                 fileName: file.name,
                 atsScore: analysisResult.atsScore || 0,
                 feedback: analysisResult,

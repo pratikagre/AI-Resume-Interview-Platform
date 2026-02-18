@@ -46,10 +46,10 @@ export async function POST(req: Request) {
                 role: user.role
             }
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Registration error:", error);
         return NextResponse.json(
-            { error: "Internal server error" },
+            { error: `Internal server error: ${error.message}` },
             { status: 500 }
         );
     }

@@ -1,11 +1,20 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { openai } from "@/lib/openai";
 
 export const dynamic = 'force-dynamic';
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
+    // Dynamic import to prevent build-time initialization
+    const OpenAI = (await import("openai")).default;
+
+    // Initialize OpenAI only when needed
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+        return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    }
+    const openai = new OpenAI({ apiKey });
     try {
         const session = await getServerSession(authOptions);
         if (!session) {

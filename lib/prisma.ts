@@ -1,13 +1,23 @@
 import { PrismaClient } from "@prisma/client";
 
 const prismaClientSingleton = () => {
-    // In Prisma v7 with 'driverAdapter' or explicit config, we should pass the URL if not in schema.
-    // However, if we are using standard Postgres without an adapter, we might need to pass `datasourceUrl` 
-    // or `datasources` in a specific format if the schema doesn't have it.
+    // Graceful fallback for build time if env var is missing
+    const url = process.env.DATABASE_URL;
 
-    // Attempting the most standard v7 way for non-adapter usage:
+    if (!url && process.env.NODE_ENV === 'production') {
+        console.warn("⚠️ DATABASE_URL is missing in production build. Prisma Client might fail if used.");
+    }
+
+    // If DATABASE_URL is missing in production (e.g. during build), use a dummy valid URL to satisfy Prisma validation
+    // This prevents the build from crashing, but obviously won't work for runtime data fetching (which is fine during build)
+    const connectionUrl = url || "postgresql://dummy:dummy@localhost:5432/dummy";
+
     return new PrismaClient({
-        datasourceUrl: process.env.DATABASE_URL,
+        datasources: {
+            db: {
+                url: connectionUrl,
+            },
+        },
     });
 };
 

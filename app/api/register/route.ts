@@ -4,10 +4,9 @@ import bcrypt from "bcryptjs";
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
-    // Lazy load prisma to prevent build-time connection attempts
-    const { prisma } = await import("@/lib/prisma");
-
     try {
+        // Lazy load prisma inside try-catch to handle init errors
+        const { prisma } = await import("@/lib/prisma");
         const { email, password, name } = await req.json();
 
         if (!email || !password) {

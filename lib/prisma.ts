@@ -8,14 +8,16 @@ const prismaClientSingleton = () => {
         console.warn("⚠️ DATABASE_URL is missing in production build. Prisma Client might fail if used.");
     }
 
+    // If DATABASE_URL is missing in production (e.g. during build), use a dummy valid URL to satisfy Prisma validation
+    // This prevents the build from crashing, but obviously won't work for runtime data fetching (which is fine during build)
+    const connectionUrl = url || "postgresql://dummy:dummy@localhost:5432/dummy";
+
     return new PrismaClient({
-        ...(url && {
-            datasources: {
-                db: {
-                    url: url,
-                },
+        datasources: {
+            db: {
+                url: connectionUrl,
             },
-        }),
+        },
     });
 };
 

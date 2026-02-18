@@ -6,6 +6,8 @@ import { openai } from "@/lib/openai";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdf = require("pdf-parse");
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
     try {
         const session = await getServerSession(authOptions);

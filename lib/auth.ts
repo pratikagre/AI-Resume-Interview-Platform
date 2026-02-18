@@ -11,33 +11,40 @@ export const authOptions: NextAuthOptions = {
                 password: { label: "Password", type: "password" }
             },
             async authorize(credentials) {
-                if (!credentials?.email || !credentials?.password) {
-                    throw new Error("Missing email or password");
+                try {
+                    if (!credentials?.email || !credentials?.password) {
+                        throw new Error("Missing email or password");
+                    }
+
+                    // Lazy load prisma to prevent build-time connection attempts
+                    const { prisma } = await import("@/lib/prisma");
+
+                    const user = await prisma.user.findUnique({
+                        where: { email: credentials.email }
+                    });
+
+                    if (!user) {
+                        console.error("Authorize: User not found for email:", credentials.email);
+                        throw new Error("User not found");
+                    }
+
+                    const isValid = await bcrypt.compare(credentials.password, user.password);
+
+                    if (!isValid) {
+                        console.warn("Authorize: Invalid password for email:", credentials.email);
+                        throw new Error("Invalid password");
+                    }
+
+                    return {
+                        id: user.id,
+                        email: user.email,
+                        name: user.name,
+                        role: user.role
+                    };
+                } catch (error) {
+                    console.error("Authorize execution error:", error);
+                    throw error;
                 }
-
-                // Lazy load prisma to prevent build-time connection attempts
-                const { prisma } = await import("@/lib/prisma");
-
-                const user = await prisma.user.findUnique({
-                    where: { email: credentials.email }
-                });
-
-                if (!user) {
-                    throw new Error("User not found");
-                }
-
-                const isValid = await bcrypt.compare(credentials.password, user.password);
-
-                if (!isValid) {
-                    throw new Error("Invalid password");
-                }
-
-                return {
-                    id: user.id,
-                    email: user.email,
-                    name: user.name,
-                    role: user.role
-                };
             }
         })
     ],

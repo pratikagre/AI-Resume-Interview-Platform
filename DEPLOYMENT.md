@@ -13,7 +13,13 @@ This guide covers deploying the AI Resume Platform to **Vercel** (Frontend + API
 1. Get your API Key from [OpenAI Platform](https://platform.openai.com).
 2. Ensure you have credits/billing enabled.
 
-## 3. Deploy to Vercel
+## 3. Email Setup (Resend)
+
+1. Sign up on [Resend](https://resend.com).
+2. Create an API Key in the dashboard.
+3. Verify your domain (recommended for production).
+
+## 4. Deploy to Vercel
 
 1. Push your code to a GitHub repository.
 2. Go to [Vercel](https://vercel.com) and import your repository.
@@ -28,7 +34,7 @@ This guide covers deploying the AI Resume Platform to **Vercel** (Frontend + API
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 5. Click **Deploy**.
 
-## 4. Post-Deployment
+## 5. Post-Deployment
 
 1. After deployment, go to your Vercel dashboard.
 2. If the build failed due to Prisma, ensure `npx prisma generate` is in the build command (Vercel does this automatically for Next.js usually).

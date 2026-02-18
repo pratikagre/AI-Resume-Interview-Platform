@@ -1,14 +1,16 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Mic, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 export const dynamic = 'force-dynamic';
+export const runtime = "nodejs";
 
 export default async function DashboardPage() {
+    // Lazy load prisma to prevent build-time connection attempts
+    const { prisma } = await import("@/lib/prisma");
     const session = await getServerSession(authOptions);
 
     if (!session) {

@@ -1,6 +1,5 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { redirect } from "next/navigation";
 import { Users, FileText, Mic } from "lucide-react";
@@ -15,8 +14,11 @@ import {
 import { Button } from "@/components/ui/button";
 
 export const dynamic = 'force-dynamic';
+export const runtime = "nodejs";
 
 export default async function AdminPage() {
+    // Lazy load prisma to prevent build-time connection attempts
+    const { prisma } = await import("@/lib/prisma");
     const session = await getServerSession(authOptions);
 
     if (!session || session.user.role !== "ADMIN") {

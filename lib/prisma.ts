@@ -1,24 +1,20 @@
 import { PrismaClient } from "@prisma/client";
 
 const prismaClientSingleton = () => {
-    // Graceful fallback for build time if env var is missing
-    const url = process.env.DATABASE_URL;
-
-    if (!url && process.env.NODE_ENV === 'production') {
-        console.warn("⚠️ DATABASE_URL is missing in production build. Prisma Client might fail if used.");
+    // Graceful fallback: If DATABASE_URL exists, use standard init (respects schema.prisma)
+    if (process.env.DATABASE_URL) {
+        return new PrismaClient();
     }
 
-    // If DATABASE_URL is missing in production (e.g. during build), use a dummy valid URL to satisfy Prisma validation
-    // This prevents the build from crashing, but obviously won't work for runtime data fetching (which is fine during build)
-    const connectionUrl = url || "postgresql://dummy:dummy@localhost:5432/dummy";
+    // If missing (likely build time), use dummy to pass validation
+    if (process.env.NODE_ENV === 'production') {
+        process.env.DATABASE_URL = "postgresql://dummy:dummy@localhost:5432/dummy";
+        console.warn("⚠️ DATABASE_URL is missing in production build. Using dummy connection.");
+    }
 
-    return new PrismaClient({
-        datasources: {
-            db: {
-                url: connectionUrl,
-            },
-        },
-    });
+    // We can also just return new PrismaClient() now that we set the env var above
+    // This avoids using the 'datasources' property which can be flaky across versions
+    return new PrismaClient();
 };
 
 type PrismaClientSingleton = ReturnType<typeof prismaClientSingleton>;

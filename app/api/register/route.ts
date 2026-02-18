@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
+    // Lazy load prisma to prevent build-time connection attempts
+    const { prisma } = await import("@/lib/prisma");
+
     try {
         const { email, password, name } = await req.json();
 

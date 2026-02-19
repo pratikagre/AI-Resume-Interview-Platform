@@ -9,16 +9,20 @@ export const runtime = "nodejs";
 
 export async function POST(req: Request) {
     try {
+        console.log("[ResumeAPI] Step 1: Check Session");
         const session = await getServerSession(authOptions);
         if (!session) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
+        console.log("[ResumeAPI] Step 2: Import Dependencies");
         // Lazy load heavy dependencies to prevent build-time crashes
         const { prisma } = await import("@/lib/prisma");
         const OpenAI = (await import("openai")).default;
+
         // Polyfill Promise.withResolvers for Node < 22 (required by recent pdf.js versions)
         if (typeof Promise.withResolvers === 'undefined') {
+            console.log("[ResumeAPI] Polyfilling Promise.withResolvers");
             // @ts-ignore - Polyfill for Node.js environments
             Promise.withResolvers = function () {
                 let resolve, reject;
@@ -32,16 +36,18 @@ export async function POST(req: Request) {
 
         // Polyfill DOMMatrix for Node.js environments (required by pdf.js)
         if (typeof global.DOMMatrix === 'undefined') {
-            console.log("Polyfilling DOMMatrix for pdf-parse...");
+            console.log("[ResumeAPI] Polyfilling DOMMatrix");
             // @ts-ignore - Polyfill
             global.DOMMatrix = class DOMMatrix {
                 constructor() { }
             };
         }
 
+        console.log("[ResumeAPI] Step 3: Require pdf-parse");
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const pdf = require("pdf-parse");
 
+        console.log("[ResumeAPI] Step 4: Parse Form Data");
         const formData = await req.formData();
         const file = formData.get("file") as File;
 
@@ -49,10 +55,12 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
         }
 
+        console.log("[ResumeAPI] Step 5: Convert File to Buffer");
         // Convert file to buffer for pdf-parse
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
+        console.log("[ResumeAPI] Step 6: Extract Text");
         // Extract text from PDF
         const data = await pdf(buffer);
         const resumeText = data.text;
@@ -60,7 +68,9 @@ export async function POST(req: Request) {
         if (!resumeText) {
             return NextResponse.json({ error: "Could not extract text from PDF" }, { status: 400 });
         }
+        console.log(`[ResumeAPI] Extracted text length: ${resumeText.length}`);
 
+        console.log("[ResumeAPI] Step 7: Config OpenAI");
         // Initialize OpenAI only when needed and safe
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
@@ -72,6 +82,7 @@ export async function POST(req: Request) {
             apiKey: apiKey,
         });
 
+        console.log("[ResumeAPI] Step 8: Call OpenAI");
         // Analyze with OpenAI
         const prompt = `
       You are an expert Resume Analyzer and ATS (Applicant Tracking System) specialist.
@@ -94,8 +105,10 @@ export async function POST(req: Request) {
             response_format: { type: "json_object" },
         });
 
+        console.log("[ResumeAPI] Step 9: Parse OpenAI Response");
         const analysisResult = JSON.parse(completion.choices[0].message.content || "{}");
 
+        console.log("[ResumeAPI] Step 10: Save to DB");
         // Save to Database
         const resume = await prisma.resume.create({
             data: {
@@ -107,6 +120,7 @@ export async function POST(req: Request) {
             },
         });
 
+        console.log("[ResumeAPI] Success!");
         return NextResponse.json({ resume, analysis: analysisResult });
 
     } catch (error) {

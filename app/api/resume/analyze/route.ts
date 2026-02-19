@@ -89,6 +89,6 @@ export async function POST(req: Request) {
 
     } catch (error) {
         console.error("Resume analysis error:", error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+        return NextResponse.json({ error: `Analysis failed: ${(error as any).message}` }, { status: 500 });
     }
 }

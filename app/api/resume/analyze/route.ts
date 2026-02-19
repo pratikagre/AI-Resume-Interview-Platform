@@ -20,32 +20,8 @@ export async function POST(req: Request) {
         const { prisma } = await import("@/lib/prisma");
         const OpenAI = (await import("openai")).default;
 
-        // Polyfill Promise.withResolvers for Node < 22 (required by recent pdf.js versions)
-        if (typeof Promise.withResolvers === 'undefined') {
-            console.log("[ResumeAPI] Polyfilling Promise.withResolvers");
-            // @ts-ignore - Polyfill for Node.js environments
-            Promise.withResolvers = function () {
-                let resolve, reject;
-                const promise = new Promise((res, rej) => {
-                    resolve = res;
-                    reject = rej;
-                });
-                return { promise, resolve, reject };
-            };
-        }
-
-        // Polyfill DOMMatrix for Node.js environments (required by pdf.js)
-        if (typeof global.DOMMatrix === 'undefined') {
-            console.log("[ResumeAPI] Polyfilling DOMMatrix");
-            // @ts-ignore - Polyfill
-            global.DOMMatrix = class DOMMatrix {
-                constructor() { }
-            };
-        }
-
-        console.log("[ResumeAPI] Step 3: Require pdf-parse");
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const pdf = require("pdf-parse");
+        console.log("[ResumeAPI] Step 3: Require pdf2json");
+        const PDFParser = (await import("pdf2json")).default;
 
         console.log("[ResumeAPI] Step 4: Parse Form Data");
         const formData = await req.formData();
@@ -60,10 +36,24 @@ export async function POST(req: Request) {
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
-        console.log("[ResumeAPI] Step 6: Extract Text");
-        // Extract text from PDF
-        const data = await pdf(buffer);
-        const resumeText = data.text;
+        console.log("[ResumeAPI] Step 6: Extract Text (using pdf2json)");
+
+        const resumeText = await new Promise<string>((resolve, reject) => {
+            const pdfParser = new PDFParser(null, 1); // 1 = text mode
+
+            pdfParser.on("pdfParser_dataError", (errData: any) => {
+                console.error("[ResumeAPI] PDF Parser Error:", errData.parserError);
+                reject(new Error(errData.parserError));
+            });
+
+            pdfParser.on("pdfParser_dataReady", (pdfData: any) => {
+                // Extract text from the raw data
+                const rawText = pdfParser.getRawTextContent();
+                resolve(rawText);
+            });
+
+            pdfParser.parseBuffer(buffer);
+        });
 
         if (!resumeText) {
             return NextResponse.json({ error: "Could not extract text from PDF" }, { status: 400 });

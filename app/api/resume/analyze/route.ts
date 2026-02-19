@@ -19,7 +19,7 @@ export async function POST(req: Request) {
         const OpenAI = (await import("openai")).default;
         // Polyfill Promise.withResolvers for Node < 22 (required by recent pdf.js versions)
         if (typeof Promise.withResolvers === 'undefined') {
-            // @ts-expect-error - Polyfill for Node.js environments
+            // @ts-ignore - Polyfill for Node.js environments
             Promise.withResolvers = function () {
                 let resolve, reject;
                 const promise = new Promise((res, rej) => {
@@ -31,9 +31,8 @@ export async function POST(req: Request) {
         }
 
         // Polyfill DOMMatrix for Node.js environments (required by pdf.js)
-        // @ts-expect-error - Polyfill
         if (typeof global.DOMMatrix === 'undefined') {
-            // @ts-expect-error - Polyfill
+            // @ts-ignore - Polyfill
             global.DOMMatrix = class DOMMatrix {
                 constructor() { }
             };

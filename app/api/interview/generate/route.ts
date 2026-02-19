@@ -36,17 +36,34 @@ export async function POST(req: Request) {
       Example: { "questions": [{ "question": "Explain React hooks." }] }
     `;
 
-        const completion = await openai.chat.completions.create({
-            messages: [{ role: "system", content: "You are a helpful assistant that outputs JSON." }, { role: "user", content: prompt }],
-            model: "gpt-3.5-turbo",
-            response_format: { type: "json_object" },
-        });
-
-        const data = JSON.parse(completion.choices[0].message.content || "{}");
+        let data;
+        try {
+            const completion = await openai.chat.completions.create({
+                messages: [{ role: "system", content: "You are a helpful assistant that outputs JSON." }, { role: "user", content: prompt }],
+                model: "gpt-3.5-turbo",
+                response_format: { type: "json_object" },
+            });
+            data = JSON.parse(completion.choices[0].message.content || "{}");
+        } catch (openaiError: any) {
+            console.error("OpenAI API Failed:", openaiError);
+            if (openaiError?.status === 429 || openaiError?.status === 500 || openaiError?.code === 'insufficient_quota') {
+                console.warn("⚠️ Using MOCK DATA due to OpenAI API Quota Limit");
+                data = {
+                    questions: [
+                        { question: `[MOCK] Explain the core concepts of ${jobRole}.` },
+                        { question: "[MOCK] How do you handle state management in complex applications?" },
+                        { question: "[MOCK] Describe a challenging bug you fixed recently." },
+                        { question: "[MOCK] What is the difference between TCP and UDP?" },
+                        { question: "[MOCK] How would you optimize a slow database query?" }
+                    ]
+                };
+            } else {
+                throw openaiError; // Re-throw if it's not a quota/server issue
+            }
+        }
 
         // In a real app, we would save the interview session to DB here
         // For now, we just return the questions to the client to start the session state
-
         return NextResponse.json({ questions: data.questions || [] });
 
     } catch (error) {

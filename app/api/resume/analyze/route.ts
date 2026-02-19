@@ -39,7 +39,7 @@ export async function POST(req: Request) {
         console.log("[ResumeAPI] Step 6: Extract Text (using pdf2json)");
 
         const resumeText = await new Promise<string>((resolve, reject) => {
-            const pdfParser = new PDFParser(null, 1); // 1 = text mode
+            const pdfParser = new PDFParser(null, true); // true = enable raw text extraction
 
             pdfParser.on("pdfParser_dataError", (errData: any) => {
                 console.error("[ResumeAPI] PDF Parser Error:", errData.parserError);
@@ -89,14 +89,42 @@ export async function POST(req: Request) {
       ${resumeText.substring(0, 3000)}
     `;
 
-        const completion = await openai.chat.completions.create({
-            messages: [{ role: "system", content: "You are a helpful assistant that outputs JSON." }, { role: "user", content: prompt }],
-            model: "gpt-3.5-turbo",
-            response_format: { type: "json_object" },
-        });
-
-        console.log("[ResumeAPI] Step 9: Parse OpenAI Response");
-        const analysisResult = JSON.parse(completion.choices[0].message.content || "{}");
+        let analysisResult;
+        try {
+            const completion = await openai.chat.completions.create({
+                messages: [{ role: "system", content: "You are a helpful assistant that outputs JSON." }, { role: "user", content: prompt }],
+                model: "gpt-3.5-turbo",
+                response_format: { type: "json_object" },
+            });
+            console.log("[ResumeAPI] Step 9: Parse OpenAI Response");
+            analysisResult = JSON.parse(completion.choices[0].message.content || "{}");
+        } catch (openaiError: any) {
+            console.error("[ResumeAPI] OpenAI Failed:", openaiError);
+            if (openaiError?.status === 429 || openaiError?.status === 500 || openaiError?.code === 'insufficient_quota') {
+                console.warn("⚠️ Using MOCK DATA due to OpenAI API Quota Limit");
+                analysisResult = {
+                    atsScore: 75,
+                    skills: ["React", "TypeScript", "Node.js", "Tailwind CSS", "PostgreSQL"],
+                    missingKeywords: ["Docker", "Kubernetes", "AWS", "CI/CD"],
+                    profileSummary: "[MOCK] A dedicated software engineer with experience in modern web technologies. (Generated because OpenAI Quota Exceeded)",
+                    improvementTips: [
+                        "[MOCK] Consider adding more cloud infrastructure keywords.",
+                        "[MOCK] Quantify your achievements with metrics.",
+                        "[MOCK] Expand on your system design experience."
+                    ],
+                    radarChartData: [
+                        { subject: "Technical Skills", A: 80, fullMark: 100 },
+                        { subject: "Experience", A: 70, fullMark: 100 },
+                        { subject: "Education", A: 90, fullMark: 100 },
+                        { subject: "Formatting", A: 85, fullMark: 100 },
+                        { subject: "Impact", A: 60, fullMark: 100 },
+                        { subject: "Keywords", A: 65, fullMark: 100 }
+                    ]
+                };
+            } else {
+                throw openaiError;
+            }
+        }
 
         console.log("[ResumeAPI] Step 10: Save to DB");
         // Save to Database

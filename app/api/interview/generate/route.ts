@@ -21,9 +21,13 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { jobRole, jobDescription, experience } = await req.json();
+        const body = await req.json();
+        console.log("[InterviewAPI] Received body:", body);
+        const { jobRole, jobDescription, experience } = body;
 
-        if (!jobRole || !experience) {
+        // validation: experience can be 0, so check strict null/undefined or empty string for role
+        if (!jobRole || experience === undefined || experience === null) {
+            console.error("[InterviewAPI] Validation Failed:", { jobRole, experience });
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 

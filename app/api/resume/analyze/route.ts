@@ -32,6 +32,7 @@ export async function POST(req: Request) {
 
         // Polyfill DOMMatrix for Node.js environments (required by pdf.js)
         if (typeof global.DOMMatrix === 'undefined') {
+            console.log("Polyfilling DOMMatrix for pdf-parse...");
             // @ts-ignore - Polyfill
             global.DOMMatrix = class DOMMatrix {
                 constructor() { }
